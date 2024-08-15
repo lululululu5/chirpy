@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"slices"
+	"strings"
 )
 
 type apiConfig struct {
@@ -55,7 +57,7 @@ func (cfg *apiConfig) handlerPostValidation(w http.ResponseWriter, req *http.Req
 	}
 
 	type returnVals struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
 	// Read data from Post
@@ -74,8 +76,20 @@ func (cfg *apiConfig) handlerPostValidation(w http.ResponseWriter, req *http.Req
 		return
 	}
 
+	// clean Body 
+	badWords := []string{"kerfuffle", "sharbert", "fornax"}
+	bodySlice := strings.Split(params.Body, " ")
+	for i, word := range bodySlice {
+		// Check if lower cased word is in badWords slice
+		if slices.Contains(badWords, strings.ToLower(word)) {
+			bodySlice = slices.Replace(bodySlice, i, i+1, "****")
+		}
+		}
+	params.Body = strings.Join(bodySlice, " ")
+	
+	// Pass cleaned body to responseWithJSON formula
 	respondWithJSON(w, http.StatusOK, returnVals{
-		Valid: true,
+		CleanedBody: params.Body,
 	})
 }
 
