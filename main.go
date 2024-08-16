@@ -6,26 +6,38 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+
+	"github.com/lululululu5/chirpy/database"
 )
 
 type apiConfig struct {
 	fileserverHits int
+	db *database.DB
 }
+
+
 
 func main() {
 	const filepathRoot = "."
 	const port = "8080"
 
+	db, err := database.NewDB("database.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+
 	apiCfg := apiConfig{
 		fileserverHits: 0,
+		db: db, 
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/app/*", apiCfg.middlewareMetricsInc(http.StripPrefix("/app",http.FileServer(http.Dir(filepathRoot)))))
-	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerFileserverHitsCount)
-	mux.HandleFunc("POST /api/validate_chirp", apiCfg.handlerPostValidation)
 	
+	mux.HandleFunc("GET /api/healthz", handlerReadiness)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerPostValidation)	
 	mux.HandleFunc("/api/reset", apiCfg.handlerFileserverHitsReset)
 	
 
@@ -33,6 +45,8 @@ func main() {
 		Addr: ":" + port,
 		Handler: mux, 
 	}
+
+	
 
 	log.Printf("Serving files from %s on port %s\n", filepathRoot,  port)
 	log.Fatal(srv.ListenAndServe())
@@ -56,9 +70,6 @@ func (cfg *apiConfig) handlerPostValidation(w http.ResponseWriter, req *http.Req
 		Body string `json:"body"`
 	}
 
-	type returnVals struct {
-		CleanedBody string `json:"cleaned_body"`
-	}
 
 	// Read data from Post
 	decoder := json.NewDecoder(req.Body)
@@ -87,10 +98,14 @@ func (cfg *apiConfig) handlerPostValidation(w http.ResponseWriter, req *http.Req
 		}
 	params.Body = strings.Join(bodySlice, " ")
 	
+	// Add Chirp to Database
+	newChirp, err := cfg.db.CreateChirp(params.Body)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "")
+	}
+
 	// Pass cleaned body to responseWithJSON formula
-	respondWithJSON(w, http.StatusOK, returnVals{
-		CleanedBody: params.Body,
-	})
+	respondWithJSON(w, http.StatusCreated, newChirp)
 }
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {
@@ -116,5 +131,6 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	}
 	w.WriteHeader(code)
 	w.Write(dat)
-
 }
+
+
