@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"slices"
-	"strings"
 
 	"github.com/lululululu5/chirpy/database"
 )
@@ -26,7 +24,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-
 	apiCfg := apiConfig{
 		fileserverHits: 0,
 		db: db, 
@@ -37,7 +34,8 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerFileserverHitsCount)
 	
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
-	mux.HandleFunc("POST /api/chirps", apiCfg.handlerPostValidation)	
+	mux.HandleFunc("POST /api/chirps", apiCfg.hanlderCreateChirps)
+	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetChirps)
 	mux.HandleFunc("/api/reset", apiCfg.handlerFileserverHitsReset)
 	
 
@@ -45,8 +43,6 @@ func main() {
 		Addr: ":" + port,
 		Handler: mux, 
 	}
-
-	
 
 	log.Printf("Serving files from %s on port %s\n", filepathRoot,  port)
 	log.Fatal(srv.ListenAndServe())
@@ -63,49 +59,6 @@ func (cfg *apiConfig) handlerFileserverHitsReset(w http.ResponseWriter, req *htt
 	w.WriteHeader(http.StatusOK)
 	cfg.fileserverHits = 0
 	w.Write([]byte("Hits reset to 0"))
-}
-
-func (cfg *apiConfig) handlerPostValidation(w http.ResponseWriter, req *http.Request) {
-	type parameters struct {
-		Body string `json:"body"`
-	}
-
-
-	// Read data from Post
-	decoder := json.NewDecoder(req.Body)
-	params := parameters{}
-	err := decoder.Decode(&params)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters")
-		return
-	}
-
-	//Response in case of Wrong length
-	const maxChirpLenght = 140
-	if len(params.Body) > maxChirpLenght {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
-		return
-	}
-
-	// clean Body 
-	badWords := []string{"kerfuffle", "sharbert", "fornax"}
-	bodySlice := strings.Split(params.Body, " ")
-	for i, word := range bodySlice {
-		// Check if lower cased word is in badWords slice
-		if slices.Contains(badWords, strings.ToLower(word)) {
-			bodySlice = slices.Replace(bodySlice, i, i+1, "****")
-		}
-		}
-	params.Body = strings.Join(bodySlice, " ")
-	
-	// Add Chirp to Database
-	newChirp, err := cfg.db.CreateChirp(params.Body)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "")
-	}
-
-	// Pass cleaned body to responseWithJSON formula
-	respondWithJSON(w, http.StatusCreated, newChirp)
 }
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {

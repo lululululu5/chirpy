@@ -3,20 +3,17 @@ package database
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
-	"sort"
 	"sync"
 )
 
 type DB struct {
 	path string
-	chirpsCount int
-	mux *sync.RWMutex
+	mu *sync.RWMutex
 }
 
 type Chirp struct {
-	Id int `json:"id"`
+	ID int `json:"id"`
 	Body string `json:"body"`
 }
 
@@ -25,105 +22,98 @@ type DBStructure struct {
 }
 
 func NewDB(path string) (*DB, error) {
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		err := os.WriteFile(path, []byte{}, 0666)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	
 	db := &DB{
 		path: path,
-		chirpsCount: 0,
-		mux: new(sync.RWMutex),
-
+		mu: &sync.RWMutex{},
 	}
-	return db, nil
+
+	err := db.ensureDB()
+	return db, err 
 }
 
 func (db *DB) CreateChirp(body string) (Chirp, error) {
-	newChirp := Chirp{
-		Id: db.chirpsCount +1,
+	dBStructure, err := db.loadDB()
+	if err != nil {
+		return Chirp{}, err
+	}
+
+	id := len(dBStructure.Chirps) + 1
+	chirp := Chirp{
+		ID: id, 
 		Body: body,
 	}
-	db.chirpsCount++
-	dbStructure, err := db.loadDB()
+	dBStructure.Chirps[id] = chirp
+
+	err = db.writeDB(dBStructure)
 	if err != nil {
-		log.Fatal(err)
+		return Chirp{}, err
 	}
-	dbStructure.Chirps[db.chirpsCount] = newChirp
-	db.writeDB(dbStructure)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return newChirp, nil
+
+	return chirp, nil
 }
 
 func (db *DB) GetChirps() ([]Chirp, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	Chirps := []Chirp{}
+	chirps := make([]Chirp, 0, len(dbStructure.Chirps))
 	for _, chirp := range dbStructure.Chirps {
-		Chirps = append(Chirps, chirp)
+		chirps = append(chirps, chirp)
 	}
-	// sorting of a slice based on the Id field
-	sort.Slice(Chirps, func(i,j int) bool {
-		return Chirps[i].Id < Chirps[j].Id
-	})
-	return Chirps, nil
+
+	return chirps, nil
 }
 
-// ensureDB creates a new database file if it doesn't exist
-func (db *DB) ensureDB() error { 
-	if _, err := os.Stat(db.path); errors.Is(err, os.ErrNotExist) {
-		err := os.WriteFile(db.path, []byte{}, 0666)
-		if err != nil {
-			return err
-		}
+func (db *DB) createDB() error {
+	dbStructure := DBStructure{
+		Chirps: map[int]Chirp{},
 	}
-	return nil
+
+	return db.writeDB(dbStructure)
+}
+
+func (db *DB) ensureDB() error {
+	_, err := os.ReadFile(db.path)
+	if errors.Is(err, os.ErrNotExist) {
+		return db.createDB()
+	}
+	return err
 }
 
 func (db *DB) loadDB() (DBStructure, error) {
-	// should fall back to ensureDB, to make sure it does not cause any problems
-	err := db.ensureDB()
-	if err != nil {
-		return DBStructure{}, err
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	dbStucture := DBStructure{}
+	dat, err := os.ReadFile(db.path)
+	if errors.Is(err, os.ErrNotExist) {
+		return dbStucture, err
 	}
 
-	rawDat, err := os.ReadFile(db.path)
+	err = json.Unmarshal(dat, &dbStucture)
 	if err != nil {
-		return DBStructure{}, err
+		return dbStucture, err
 	}
 
-	dbStructure := DBStructure{}
-	err = json.Unmarshal(rawDat, &dbStructure)
-	if err != nil {
-		return DBStructure{}, err
-	}
-
-	return dbStructure, nil
+	return dbStucture, nil
 }
 
-
 func (db *DB) writeDB(dbStructure DBStructure) error {
-	err := db.ensureDB()
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	dat, err := json.Marshal(dbStructure)
 	if err != nil {
 		return err
 	}
 
-	dat, err := json.Marshal(dbStructure) 
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(db.path, dat, 0666)
+	err = os.WriteFile(db.path, dat, 0600)
 	if err != nil {
 		return err
 	}
 
 	return nil
+
 }
