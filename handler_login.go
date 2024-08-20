@@ -13,6 +13,9 @@ func(cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
 		Email string `json:"email"`
 		Password string `json:"password"`
 	}
+	type response struct {
+		User
+	}
 
 	decoder := json.NewDecoder(req.Body)
 	params := parameters{}
@@ -22,22 +25,26 @@ func(cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	
-	user, err := cfg.db.GetUserByMail(params.Email)
+	user, err := cfg.db.GetUserByMail(params.Email) // returns User Struct with hashed password
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "User does not exist")
 		return
 	}
 
-	// validatePassword
-	err = auth.CheckHashPassword(user.HashedPassword, params.Password)
-	fmt.Print(err)
+
+	fmt.Printf("This is the provided Password: %s\n", params.Password)
+	fmt.Printf("This is the stored hash: %s\n", user.HashedPassword)
+	err = auth.CheckPasswordHash(params.Password, user.HashedPassword)
+	fmt.Println(err)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Passwords or Email wrong")
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, User{
-		ID: user.ID,
-		Email: user.Email,
+	respondWithJSON(w, http.StatusOK, response{
+		User: User{
+			ID: user.ID,
+			Email: user.Email,
+		},
 	})
 }

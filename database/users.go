@@ -2,8 +2,6 @@ package database
 
 import (
 	"errors"
-
-	"github.com/lululululu5/chirpy/auth"
 )
 
 type User struct {
@@ -12,7 +10,7 @@ type User struct {
 	HashedPassword string `json:"hashed_password"`
 }
 
-func (db *DB) CreateUser(email, password string) (User, error){
+func (db *DB) CreateUser(email, hashedPassword string) (User, error){
 	dbStructure, err := db.loadDB()
 	if err != nil {
 		return User{}, err
@@ -24,10 +22,10 @@ func (db *DB) CreateUser(email, password string) (User, error){
 	}
 
 	id := len(dbStructure.Users) + 1
-	hashedPassword, err := auth.GenerateHashPassword(password)
-	if err != nil {
-		return User{}, err
-	}
+	// hashedPassword, err := auth.GenerateHashPassword(password)
+	// if err != nil {
+	// 	return User{}, err
+	// }
 
 	user := User{
 		ID: id,
