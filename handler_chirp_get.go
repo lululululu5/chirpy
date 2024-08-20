@@ -28,6 +28,18 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request)
 	})
 
 	respondWithJSON(w, http.StatusOK, chirps)
+}
 
+func(cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("chirpID")
+	dbChirp, err := cfg.db.GetChirp(id)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Could not retrieve Chirp with ID")
+	}
+
+	respondWithJSON(w, http.StatusOK, Chirp{
+		ID: dbChirp.ID,
+		Body: dbChirp.Body,
+	})
 
 }
