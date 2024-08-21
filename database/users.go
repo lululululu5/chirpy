@@ -16,17 +16,12 @@ func (db *DB) CreateUser(email, hashedPassword string) (User, error){
 		return User{}, err
 	}
 
-	exists, _ :=  checkForExistingUser(email, dbStructure.Users) 
+	exists, _ := checkForExistingUser(email, dbStructure.Users) 
 	if exists {
 		return User{}, errors.New("User with email already exists")
 	}
 
 	id := len(dbStructure.Users) + 1
-	// hashedPassword, err := auth.GenerateHashPassword(password)
-	// if err != nil {
-	// 	return User{}, err
-	// }
-
 	user := User{
 		ID: id,
 		Email: email,
@@ -74,6 +69,31 @@ func (db *DB) GetUserByMail(email string) (User, error) {
 	return user, nil
 }
 
+func (db *DB) UpdateUser(id int, hashedPassword, email string) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	_, ok := dbStructure.Users[id]; if !ok {
+		return User{}, errors.New("User does not exist")
+	}
+
+	user := User{
+		ID: id,
+		Email: email,
+		HashedPassword: hashedPassword,
+	}
+
+	dbStructure.Users[id] = user
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return User{}, err
+	}
+
+	return user, nil
+  }
+
 func checkForExistingUser(lookupEmail string, lookupDB map[int]User) (bool, int) {
 	for _,user:= range lookupDB{
 	  if(user.Email == lookupEmail){
@@ -82,3 +102,4 @@ func checkForExistingUser(lookupEmail string, lookupDB map[int]User) (bool, int)
 	}
 	return false, 0
   }
+

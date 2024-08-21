@@ -3,18 +3,9 @@ package database
 import (
 	"errors"
 	"strconv"
-	"sync"
 )
 
-func NewDB(path string) (*DB, error) {
-	db := &DB{
-		path: path,
-		mu: &sync.RWMutex{},
-	}
 
-	err := db.ensureDB()
-	return db, err 
-}
 
 func (db *DB) CreateChirp(body string) (Chirp, error) {
 	dBStructure, err := db.loadDB()

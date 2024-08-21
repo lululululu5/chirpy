@@ -5,18 +5,27 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/lululululu5/chirpy/database"
 )
 
 type apiConfig struct {
 	fileserverHits int
 	db *database.DB
+	jwtSecret string
 }
 
 
 
+
+
 func main() {
+	godotenv.Load()
+	jwtSecret := os.Getenv("JWT_SECRET")
+
+
 	const filepathRoot = "."
 	const port = "8080"
 
@@ -36,7 +45,8 @@ func main() {
 
 	apiCfg := apiConfig{
 		fileserverHits: 0,
-		db: db, 
+		db: db,
+		jwtSecret: jwtSecret,
 	}
 
 	mux := http.NewServeMux()
@@ -44,10 +54,13 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerFileserverHitsCount)
 	
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
+
 	mux.HandleFunc("POST /api/chirps", apiCfg.hanlderCreateChirps)
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerGetChirp)
+	
 	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUsers)
+	mux.HandleFunc("PUT /api/users", apiCfg.handlerUpdateUsers)
 	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
 
 	mux.HandleFunc("/api/reset", apiCfg.handlerFileserverHitsReset)

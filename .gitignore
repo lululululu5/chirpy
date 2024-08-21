@@ -1,2 +1,4 @@
 tasks.todo
 database.json
+
+.env
