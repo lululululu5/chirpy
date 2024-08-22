@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -23,13 +25,20 @@ func CheckPasswordHash(password, hash string)  error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }
 
-func MakeJWT(userID int, tokenSecret string, expiresIn time.Duration) (string, error) {
+func MakeJWT(userID int, tokenSecret string, expiresIn int) (string, error) {
 	signingKey := []byte(tokenSecret)
+
+	expiredInFormatted := time.Duration(expiresIn)*time.Second
+
+	defaultExpiration := time.Duration(60*60)*time.Second // 1h default Expiration for access token
+	if expiredInFormatted > defaultExpiration || expiredInFormatted == 0 {
+		expiredInFormatted = defaultExpiration
+	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Issuer: "chirpy",
 		IssuedAt: jwt.NewNumericDate(time.Now().UTC()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(expiresIn)),
+		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(expiredInFormatted)),
 		Subject: fmt.Sprintf("%d", userID),
 	})
 	return token.SignedString(signingKey)
@@ -75,4 +84,13 @@ func GetBearerToken(headers http.Header) (string, error) {
 
 	return splitAuth[1], nil
 
+}
+
+func GenerateRefreshToken() (string, error) {
+	token := make([]byte, 32)
+	_, err := rand.Read(token)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(token), nil
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/lululululu5/chirpy/auth"
 )
@@ -17,6 +16,7 @@ func(cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
 	type response struct {
 		User
 		Token string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}
 
 	decoder := json.NewDecoder(req.Body)
@@ -39,33 +39,22 @@ func(cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Logic to ensure default and max of 24h expiration time for token generation
-	defaultExpiration := 60*60*24
-	if params.ExpiresInSeconds > defaultExpiration || params.ExpiresInSeconds == 0 {
-		params.ExpiresInSeconds = defaultExpiration
-	}
-
-	// token := jwt.NewWithClaims(
-	// 	jwt.SigningMethodHS256,
-	// 	jwt.RegisteredClaims{
-	// 		Issuer: "chirpy",
-	// 		IssuedAt: jwt.NewNumericDate(time.Now().UTC()),
-	// 		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(time.Second * time.Duration(params.ExpiresInSeconds))),
-	// 		Subject: strconv.Itoa(user.ID),
-	// 	},
-	// 	)
-	// tokenString, err := token.SignedString([]byte(cfg.jwtSecret))
-	// if err != nil {
-	// 	respondWithError(w, http.StatusInternalServerError, "Could not generte JWT token")
-	// 	return 
-	// }
-
-	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Duration(params.ExpiresInSeconds)*time.Second)
+	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, params.ExpiresInSeconds)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not generte JWT token")
 		return 
 	}
 
+	refreshToken, err := auth.GenerateRefreshToken()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not generate Refresh Token")
+		return
+	}
+
+	err = cfg.db.StoreRefreshToken(refreshToken, user.ID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not store Refresh Token")
+	}
 
 	respondWithJSON(w, http.StatusOK, response{
 		User: User{
@@ -73,5 +62,6 @@ func(cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
 			Email: user.Email,
 		},
 		Token: token,
+		RefreshToken: refreshToken,
 	})
 }

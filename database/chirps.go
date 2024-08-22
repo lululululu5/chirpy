@@ -5,6 +5,10 @@ import (
 	"strconv"
 )
 
+type Chirp struct {
+	ID int `json:"id"`
+	Body string `json:"body"`
+}
 
 
 func (db *DB) CreateChirp(body string) (Chirp, error) {
