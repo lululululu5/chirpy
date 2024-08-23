@@ -5,8 +5,6 @@ import (
 	"sort"
 )
 
-// Build a connector to load chirps and convert them to the correct format
-
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request) {
 	dbChirps, err := cfg.db.GetChirps()
@@ -20,6 +18,7 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request)
 		chirps = append(chirps, Chirp{
 			ID: dbChirp.ID,
 			Body: dbChirp.Body,
+			AuthorID: dbChirp.AuthorID,
 		})
 	}
 
@@ -40,6 +39,7 @@ func(cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, req *http.Request) {
 	respondWithJSON(w, http.StatusOK, Chirp{
 		ID: dbChirp.ID,
 		Body: dbChirp.Body,
+		AuthorID: dbChirp.AuthorID,
 	})
 
 }

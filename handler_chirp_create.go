@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/lululululu5/chirpy/auth"
 )
 
 type Chirp struct {
 	ID int `json:"id"`
 	Body string `json:"body"`
+	AuthorID int `json:"author_id"`
 }
 
 func (cfg *apiConfig) hanlderCreateChirps(w http.ResponseWriter, req *http.Request) {
@@ -24,6 +28,22 @@ func (cfg *apiConfig) hanlderCreateChirps(w http.ResponseWriter, req *http.Reque
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters")
 		return
 	}
+	accessToken, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Couldn't get Refresh Token")
+	}
+
+	userIDString, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Could not verfiy user")
+		return
+	}
+
+	userID, err := strconv.Atoi(userIDString)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not decode userID string")
+		return
+	}
 
 	cleaned, err := validateChirp(params.Body)
 	if err != nil {
@@ -31,15 +51,19 @@ func (cfg *apiConfig) hanlderCreateChirps(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	chirp, err := cfg.db.CreateChirp(cleaned)
+	chirp, err := cfg.db.CreateChirp(cleaned, userID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create chirp")
 		return
 	}
 
+	// Get Current user via header
+	
+
 	respondWithJSON(w, http.StatusCreated, Chirp{
 		ID: chirp.ID,
 		Body: chirp.Body,
+		AuthorID: userID,
 	})
 }
 
