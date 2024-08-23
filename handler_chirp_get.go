@@ -7,8 +7,9 @@ import (
 
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request) {
-	authId := req.URL.Query().Get("author_id")
-	dbChirps, err := cfg.db.GetChirps(authId)
+	authorID := req.URL.Query().Get("author_id")
+	sortBy := req.URL.Query().Get("sort")
+	dbChirps, err := cfg.db.GetChirps(authorID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not load chirps")
 		return 
@@ -23,9 +24,15 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request)
 		})
 	}
 
-	sort.Slice(chirps, func(i, j int) bool {
+	if sortBy == "desc" {
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].ID > chirps[j].ID
+		})
+	} else {
+		sort.Slice(chirps, func(i, j int) bool {
 		return chirps[i].ID < chirps[j].ID
 	})
+	}
 
 	respondWithJSON(w, http.StatusOK, chirps)
 }

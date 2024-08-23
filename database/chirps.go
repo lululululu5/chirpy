@@ -39,10 +39,14 @@ func (db *DB) GetChirps(authorIDString string) ([]Chirp, error) {
 	if err != nil {
 		return nil, err
 	}
+	
+	authorID := 0
+	if authorIDString != "" {
+		authorID, err = strconv.Atoi(authorIDString)
+		if err != nil {
+			return nil, err
+		}
 
-	authorID, err := strconv.Atoi(authorIDString)
-	if err != nil {
-		return nil, err
 	}
 
 	chirps := make([]Chirp, 0, len(dbStructure.Chirps))
@@ -51,9 +55,7 @@ func (db *DB) GetChirps(authorIDString string) ([]Chirp, error) {
 		if authorID != 0 {
 			if authorID == chirp.AuthorID {
 				chirps = append(chirps, chirp)		
-			} else {
-				continue
-			}
+			} 
 		} else {
 			chirps = append(chirps, chirp)
 		}
