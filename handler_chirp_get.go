@@ -7,7 +7,8 @@ import (
 
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request) {
-	dbChirps, err := cfg.db.GetChirps()
+	authId := req.URL.Query().Get("author_id")
+	dbChirps, err := cfg.db.GetChirps(authId)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Could not load chirps")
 		return 
