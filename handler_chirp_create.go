@@ -57,9 +57,6 @@ func (cfg *apiConfig) hanlderCreateChirps(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	// Get Current user via header
-	
-
 	respondWithJSON(w, http.StatusCreated, Chirp{
 		ID: chirp.ID,
 		Body: chirp.Body,
